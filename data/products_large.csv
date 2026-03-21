@@ -1,0 +1,31 @@
+name,category,price,city,in_stock
+MacBook Pro,laptop,150000,Bangalore,true
+MacBook Air,laptop,99000,Mumbai,true
+iPhone 15,phone,79000,Bangalore,false
+Samsung Galaxy S23,phone,55000,Delhi,true
+iPad Pro,tablet,90000,Bangalore,true
+Dell XPS 15,laptop,120000,Mumbai,false
+OnePlus 12,phone,64000,Delhi,true
+Sony WH-1000XM5,headphones,29000,Bangalore,true
+Apple Watch Series 9,wearable,41000,Mumbai,true
+Samsung 4K TV,television,85000,Delhi,false
+Lenovo ThinkPad,laptop,95000,Hyderabad,true
+Google Pixel 8,phone,75000,Bangalore,true
+iPad Mini,tablet,55000,Chennai,true
+Boat Rockerz 550,headphones,2500,Delhi,true
+Mi Smart TV,television,35000,Mumbai,true
+HP Pavilion,laptop,65000,Hyderabad,false
+Realme 11 Pro,phone,25000,Chennai,true
+Samsung Tab S9,tablet,80000,Bangalore,false
+Noise ColorFit Pro,wearable,5000,Delhi,true
+LG OLED TV,television,150000,Mumbai,false
+Asus ROG Phone,phone,99000,Hyderabad,true
+Apple AirPods Pro,headphones,24000,Bangalore,true
+Fitbit Charge 6,wearable,15000,Chennai,true
+Acer Predator,laptop,145000,Delhi,true
+Sony Bravia 55,television,75000,Bangalore,true
+iQOO 12,phone,52000,Mumbai,true
+Microsoft Surface,laptop,110000,Hyderabad,false
+Samsung Galaxy Watch,wearable,22000,Chennai,false
+JBL Flip 6,headphones,12000,Delhi,true
+Xiaomi Pad 6,tablet,35000,Mumbai,true
