@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cli-agent"
+version = "0.1.0"
+description = "Interactive CLI agent for CSV analysis and offline product search"
+requires-python = ">=3.10"
+dependencies = [
+    "groq>=0.8.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "pandas>=2.0.0",
+    "rich>=13.0.0",
+    "chromadb>=0.4.0",
+    "sentence-transformers>=2.2.0",
+    "rank-bm25>=0.2.2",
+]
+
+[project.scripts]
+agent = "src.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

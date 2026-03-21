@@ -1,0 +1,17 @@
+# Core LLM
+groq>=0.8.0
+
+# Config & env
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+
+# Data
+pandas>=2.0.0
+
+# Terminal UI
+rich>=13.0.0
+
+# Search (offline)
+chromadb>=0.4.0
+sentence-transformers>=2.2.0
+rank-bm25>=0.2.2

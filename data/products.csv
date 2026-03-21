@@ -1,0 +1,8 @@
+name,category,price,city,in_stock
+MacBook Pro,laptop,150000,Bangalore,true
+MacBook Air,laptop,99000,Mumbai,true
+iPhone 15,phone,79000,Bangalore,false
+Samsung Galaxy,phone,55000,Delhi,true
+iPad Pro,tablet,90000,Bangalore,true
+Dell XPS,laptop,120000,Mumbai,false
+OnePlus 12,phone,64000,Delhi,true

@@ -1,0 +1,23 @@
+# Environment — never commit real keys
+.env
+
+# Database & generated files
+db/
+data/uploads/
+
+# Python compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db.continue/
