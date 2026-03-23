@@ -17,6 +17,12 @@ from src.tools.csv_tool import (
     filter_rows,
     aggregate,
     get_sample,
+    join_csvs,
+    get_chart_data,
+    get_column_stats,
+    detect_outliers,
+    get_distribution,
+    run_sql_query,
 )
 
 # Conditional client initialization for Groq or OpenRouter
@@ -145,29 +151,33 @@ def run_agent(session_id: str, user_message: str) -> str:
 
     tools = get_tools_for_groq()
 
-    # Track tools used in this message to prevent duplicate calls
-    tools_used = set()
-    last_tool_result = None
-    duplicate_detected = False
-
     for turn in range(settings.max_turns):
 
-        try:
-            response = client.chat.completions.create(
-                model=ACTIVE_MODEL,
-                messages=messages,
-                tools=tools,
-                tool_choice="auto",
-                temperature=0.2,
-                max_tokens=500,
-            )
-        except Exception:
-            response = client.chat.completions.create(
-                model=ACTIVE_MODEL,
-                messages=messages,
-                temperature=0.2,
-                max_tokens=500,
-            )
+        response = None
+        last_error = None
+        
+        for attempt in range(3):
+            try:
+                response = client.chat.completions.create(
+                    model=ACTIVE_MODEL,
+                    messages=messages,
+                    tools=tools,
+                    tool_choice="auto",
+                    temperature=0.2,
+                    max_tokens=500,
+                )
+                break
+            except Exception as e:
+                last_error = str(e)
+                if attempt < 2:
+                    import time
+                    time.sleep(1 * (attempt + 1))
+                continue
+        
+        if response is None:
+            fallback = f"Failed to get response after 3 attempts: {last_error}. Please try again."
+            save_turn(session_id, "assistant", fallback, turn_number)
+            return fallback
 
         message = response.choices[0].message
 
@@ -196,11 +206,6 @@ def run_agent(session_id: str, user_message: str) -> str:
         for tool_call in message.tool_calls:
             tool_name = tool_call.function.name
 
-            # Check if tool already used successfully in this message
-            if tool_name in tools_used:
-                duplicate_detected = True
-                break
-
             try:
                 tool_args = json.loads(tool_call.function.arguments)
             except json.JSONDecodeError:
@@ -212,8 +217,6 @@ def run_agent(session_id: str, user_message: str) -> str:
                     }),
                 })
                 continue
-
-            
 
             result = _execute_tool(tool_name, tool_args)
 
@@ -231,33 +234,6 @@ def run_agent(session_id: str, user_message: str) -> str:
                 "content": json.dumps(result),
             })
 
-            # If tool succeeded, mark as used
-            if "error" not in result:
-                tools_used.add(tool_name)
-                last_tool_result = result
-
-        if duplicate_detected:
-            break
-
-    # After loop
-    if duplicate_detected:
-        # Summarize last tool result
-        if last_tool_result:
-            if "rows_found" in last_tool_result:
-                summary = f"Found {last_tool_result['rows_found']} rows."
-            elif "result" in last_tool_result:
-                summary = f"Result: {last_tool_result['result']}"
-            elif "data" in last_tool_result:
-                summary = f"Showing {len(last_tool_result['data'])} rows."
-            elif "error" in last_tool_result:
-                summary = f"Error: {last_tool_result['error']}"
-            else:
-                summary = "Tool completed."
-        else:
-            summary = "Tool already used."
-        save_turn(session_id, "assistant", summary, turn_number)
-        return summary
-
     fallback = "I reached the maximum number of steps. Please try a simpler question."
     save_turn(session_id, "assistant", fallback, turn_number)
     return fallback
@@ -273,7 +249,7 @@ def _execute_tool(tool_name: str, args: dict):
         # Auto-reload file if it's not in memory
         # This happens because /load command and agent run in the same process
         # but _dataframes can be empty if the file was loaded in a previous turn
-        if tool_name in ("get_schema", "filter_rows", "aggregate", "get_sample"):
+        if tool_name in ("get_schema", "filter_rows", "aggregate", "get_sample", "create_chart", "get_column_stats", "detect_outliers", "get_distribution", "run_sql_query"):
             file_path = args.get("file_path")
             if file_path:
                 from src.tools.csv_tool import _dataframes
@@ -306,6 +282,104 @@ def _execute_tool(tool_name: str, args: dict):
                 args["file_path"],
                 args.get("n", 5),
             )
+
+        elif tool_name == "join_csvs":
+            return join_csvs(
+                args["file_path1"],
+                args["file_path2"],
+                args["join_column"],
+                args.get("join_type", "inner"),
+            )
+
+        elif tool_name == "create_chart":
+            from src.cli.renderer import print_bar_chart, print_pie_chart
+            
+            chart_data = get_chart_data(
+                args["file_path"],
+                args["label_column"],
+                args["value_column"],
+            )
+            
+            if "error" in chart_data:
+                return chart_data
+            
+            chart_type = args.get("chart_type", "bar")
+            title = args.get("title", f"{args['value_column']} by {args['label_column']}")
+            
+            if chart_type == "pie":
+                print_pie_chart(
+                    chart_data["data"],
+                    "label",
+                    "value",
+                    title,
+                )
+            else:
+                print_bar_chart(
+                    chart_data["data"],
+                    "label",
+                    "value",
+                    title,
+                )
+            
+            return {
+                "success": True,
+                "chart_type": chart_type,
+                "title": title,
+                "data": chart_data["data"],
+            }
+
+        elif tool_name == "semantic_search":
+            from src.indexer import search_index as _semantic_search
+            
+            result = _semantic_search(
+                args["file_path"],
+                args["query"],
+                args.get("n", 5),
+            )
+            
+            if "error" in result:
+                return result
+            
+            from src.cli.renderer import print_table
+            matches_data = []
+            for match in result.get("matches", []):
+                row = {"text": match.get("text", "")[:80], "distance": round(match.get("distance", 0), 3)}
+                row.update({k: str(v)[:30] for k, v in list(match.get("metadata", {}).items())[:3]})
+                matches_data.append(row)
+            
+            if matches_data:
+                print_table(matches_data, title=f"Semantic Search: {args['query']}")
+            
+            return result
+
+        elif tool_name == "get_column_stats":
+            return get_column_stats(
+                args["file_path"],
+                args["column"],
+            )
+
+        elif tool_name == "detect_outliers":
+            return detect_outliers(
+                args["file_path"],
+                args["column"],
+            )
+
+        elif tool_name == "get_distribution":
+            return get_distribution(
+                args["file_path"],
+                args["column"],
+                args.get("bins", 10),
+            )
+
+        elif tool_name == "run_sql_query":
+            result = run_sql_query(
+                args["file_path"],
+                args["query"],
+            )
+            if "error" not in result and result.get("data"):
+                from src.cli.renderer import print_table
+                print_table(result["data"], title=f"SQL Query Results ({result['rows']} rows)")
+            return result
 
         else:
             return {"error": f"Unknown tool: {tool_name}"}

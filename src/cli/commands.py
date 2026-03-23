@@ -23,7 +23,8 @@ from src.memory.session_store import (
     get_session,
     save_loaded_file,
 )
-from src.tools.csv_tool import load_csv
+from src.tools.csv_tool import load_csv, get_data_quality
+from src.indexer import build_index, list_indexes
 from src.cli.renderer import (
     print_error,
     print_success,
@@ -38,11 +39,20 @@ from src.cli.renderer import (
 # Available commands for suggestion
 COMMANDS = [
     "/help", "/load", "/schema", "/sessions", "/resume",
-    "/export", "/clear", "/exit", "/quit"
+    "/export", "/clear", "/exit", "/quit", "/next", "/prev", "/index"
 ]
 
 # We store the last result here so /export can access it
 _last_result: list[dict] | None = None
+
+# Pagination state
+_pagination_state: dict = {
+    "data": [],
+    "current_offset": 0,
+    "page_size": 20,
+    "total_rows": 0,
+    "file_path": None,
+}
 
 
 def _suggest_command(cmd: str) -> str | None:
@@ -101,6 +111,15 @@ def handle_command(command: str, session_id: str) -> tuple[str, str]:
 
         elif cmd == "/clear":
             return _cmd_clear(), session_id
+
+        elif cmd == "/next":
+            return _cmd_next(), session_id
+
+        elif cmd == "/prev":
+            return _cmd_prev(), session_id
+
+        elif cmd == "/index":
+            return _cmd_index(args), session_id
 
         elif cmd == "/exit" or cmd == "/quit":
             return "exit", session_id
@@ -179,6 +198,21 @@ def _cmd_load(args: list[str], session_id: str) -> str:
     # Show a preview table
     if result.get("preview"):
         print_table(result["preview"], title="Preview (first 3 rows)")
+
+    # Show data quality report
+    try:
+        quality = get_data_quality(file_path)
+        if "error" not in quality:
+            print_info("Data Quality Report:")
+            if quality.get("null_counts"):
+                nulls = ", ".join(f"{k}: {v} nulls" for k, v in quality["null_counts"].items())
+                print_info(f"  • Null values: {nulls}")
+            if quality.get("duplicate_rows", 0) > 0:
+                print_info(f"  • Duplicate rows: {quality['duplicate_rows']}")
+            if not quality.get("null_counts") and not quality.get("duplicate_rows"):
+                print_info("  • No data quality issues found")
+    except Exception:
+        pass  # Silently skip if quality check fails
 
     return "ok"
 
@@ -291,10 +325,125 @@ def _cmd_clear() -> str:
     return "ok"
 
 
-def set_last_result(data: list[dict]):
+def set_last_result(data: list[dict], total_rows: int = 0, file_path: str = None):
     """
     Called by the REPL after every agent response that contains table data.
     Stores the data so /export can access it.
+    Also updates pagination state.
     """
-    global _last_result
+    global _last_result, _pagination_state
     _last_result = data
+    if data and total_rows > len(data):
+        _pagination_state = {
+            "data": data,
+            "current_offset": 0,
+            "page_size": 20,
+            "total_rows": total_rows,
+            "file_path": file_path,
+        }
+    elif not data:
+        _pagination_state = {
+            "data": [],
+            "current_offset": 0,
+            "page_size": 20,
+            "total_rows": 0,
+            "file_path": None,
+        }
+
+
+def _cmd_next() -> str:
+    """
+    /next - Show next page of results
+    """
+    global _pagination_state
+    
+    if not _pagination_state["data"]:
+        print_info("No previous query results to navigate. Run a query first.")
+        return "ok"
+    
+    total = _pagination_state["total_rows"]
+    current = _pagination_state["current_offset"]
+    page_size = _pagination_state["page_size"]
+    
+    if current + page_size >= total:
+        print_info(f"Already at the last page. Showing rows {current + 1}-{total} of {total}.")
+        return "ok"
+    
+    new_offset = current + page_size
+    _pagination_state["current_offset"] = new_offset
+    
+    start = new_offset + 1
+    end = min(new_offset + page_size, total)
+    print_info(f"Showing rows {start}-{end} of {total}. Use /prev to go back.")
+    
+    return "ok"
+
+
+def _cmd_prev() -> str:
+    """
+    /prev - Show previous page of results
+    """
+    global _pagination_state
+    
+    if not _pagination_state["data"]:
+        print_info("No previous query results to navigate. Run a query first.")
+        return "ok"
+    
+    current = _pagination_state["current_offset"]
+    page_size = _pagination_state["page_size"]
+    
+    if current == 0:
+        print_info("Already at the first page.")
+        return "ok"
+    
+    new_offset = max(0, current - page_size)
+    _pagination_state["current_offset"] = new_offset
+    
+    start = new_offset + 1
+    end = min(new_offset + page_size, _pagination_state["total_rows"])
+    print_info(f"Showing rows {start}-{end} of {_pagination_state['total_rows']}. Use /next for more.")
+    
+    return "ok"
+
+
+def _cmd_index(args: list[str]) -> str:
+    """
+    /index <path> [text_columns]
+    
+    Builds a semantic search index from a CSV file.
+    """
+    if not args:
+        print_error("Please provide a file path. Usage: /index <file.csv>")
+        print_info("Example: /index data/products.csv")
+        return "ok"
+    
+    file_path = args[0]
+    
+    if not file_path.lower().endswith('.csv'):
+        print_error(f"File must be a CSV. Got: {file_path}")
+        return "ok"
+    
+    if not Path(file_path).exists():
+        print_error(f"File not found: {file_path}")
+        return "ok"
+    
+    text_columns = args[1:] if len(args) > 1 else None
+    
+    print_info("Building semantic search index... (this may take a moment)")
+    
+    try:
+        result = build_index(file_path, text_columns if text_columns else None)
+    except Exception as e:
+        print_error(f"Index build failed: {str(e)}")
+        return "ok"
+    
+    if "error" in result:
+        print_error(result["error"])
+        return "ok"
+    
+    print_success(f"Index built: {result['documents_indexed']} documents indexed")
+    print_info(f"Collection: {result['collection_name']}")
+    print_info(f"Columns used: {', '.join(result['columns_used'])}")
+    print_info("You can now search semantically, e.g., 'Find affordable laptops'")
+    
+    return "ok"
