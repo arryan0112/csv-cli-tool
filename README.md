@@ -8,13 +8,29 @@ A conversational CLI tool that lets you query CSV files in plain English using L
 
 ## Features
 
-- Natural language queries over CSV data
-- Tool calling pipeline with filter, aggregate, and sample operations
-- Session memory with resume support
-- Indian price formatting
-- Case-insensitive search
-- LRU file caching
-- Built with Groq + Llama 3.3 70B
+### Core Features
+- **Natural language queries** - Ask questions in plain English over CSV data
+- **Tool calling pipeline** - Filter, aggregate, sample, join operations
+- **Session memory** - Resume past conversations
+- **Indian price formatting** - Auto-formats prices in Indian number system
+
+### Data Analysis Features
+- **Bar & Pie Charts** - Visualize data with `create_chart` tool
+- **Column Statistics** - Min/max/mean/median/unique counts
+- **Outlier Detection** - IQR-based statistical outlier finding
+- **Value Distribution** - Histograms for numeric, frequency for categorical
+- **SQL-like Queries** - GROUP BY, ORDER BY, LIMIT, WHERE support
+
+### Advanced Features
+- **Semantic Search** - AI-powered similarity search using embeddings + ChromaDB
+- **Offline Index** - Build search index for fast natural language queries
+- **Data Quality Reports** - Null counts, duplicates, type analysis
+- **Export Results** - Save filtered data to CSV
+
+### Robustness
+- **Retry Logic** - 3x API retry with exponential backoff
+- **LRU Caching** - Efficient memory management for large files
+- **Case-insensitive Search** - Flexible text matching
 
 ## Quick Start
 
@@ -28,26 +44,38 @@ agent
 
 ## Commands
 
-- `/load <path>` — Load a CSV file into memory
-- `/schema` — Show column names and data types
-- `/sessions` — List all conversation sessions
-- `/resume <id>` — Resume a previous session
-- `/export <id>` — Export session to JSON
-- `/clear` — Clear current session
-- `/exit` — Exit the agent
+| Command | Description |
+|---------|-------------|
+| `/load <path>` | Load a CSV file into memory |
+| `/schema` | Show column names and data types |
+| `/index <path>` | Build semantic search index |
+| `/sessions` | List all conversation sessions |
+| `/resume <id>` | Resume a previous session |
+| `/export <path>` | Export last result to CSV |
+| `/next` / `/prev` | Paginate through results |
+| `/clear` | Clear the terminal screen |
+| `/help` | Show all commands |
+| `/exit` | Exit the agent |
 
 ## Example Queries
 
-- "What products are available in Bangalore?" → Lists all products in that city
+### Basic Queries
+- "What products are available in Bangalore?" → Filters by city
 - "Show me items under ₹50,000" → Filters by price
-- "What's the average price of laptops?" → Computes mean
-- "Which cities do you have data for?" → Lists unique city values
+- "What's the average price of laptops?" → Aggregates data
+- "Which cities do you have data for?" → Lists unique values
+
+### Advanced Queries
 - "Is iPhone 15 in stock?" → Checks availability
-- "Summarize all products" → Shows sample rows
+- "Show prices by category as a bar chart" → Creates visualization
+- "Find products similar to affordable phones" → Semantic search
+- "Find outliers in the price column" → Statistical analysis
+- "Show the distribution of categories" → Value frequency
+- "Run a query: SELECT category, SUM(price) FROM table GROUP BY category" → SQL
 
 ## Tech Stack
 
-Python, Groq, Llama 3.3 70B, Pandas, Pydantic, Rich, SQLite
+Python, Groq, Llama 3.3 70B, Pandas, Pydantic, Rich, ChromaDB, Sentence-Transformers, SQLite
 
 ## Project Structure
 
@@ -56,22 +84,19 @@ src/
 ├── __init__.py
 ├── main.py
 ├── agent/
-│   ├── __init__.py
 │   ├── core.py          # agent loop, tool execution
 │   ├── prompts.py       # system prompt building
 │   ├── tools.py         # tool definitions
 │   └── runner.py        # CLI entry point
 ├── cli/
-│   ├── __init__.py
 │   ├── commands.py      # command handlers
 │   ├── renderer.py      # output formatting
 │   └── repl.py          # read-eval-print loop
 ├── config/
-│   ├── __init__.py
 │   ├── settings.py      # pydantic settings
 │   └── .env.example
 ├── indexer/
-│   └── __init__.py
+│   └── __init__.py      # semantic search with ChromaDB
 ├── memory/
 │   ├── __init__.py
 │   └── session_store.py # SQLite session storage
@@ -79,6 +104,25 @@ src/
     ├── __init__.py
     └── csv_tool.py      # CSV operations
 ```
+
+## Available Tools
+
+The agent has access to these tools:
+
+| Tool | Description |
+|------|-------------|
+| `load_csv` | Load CSV into memory |
+| `filter_rows` | Filter by column conditions |
+| `aggregate` | Sum/mean/min/max/count/median |
+| `create_chart` | Bar or pie chart visualization |
+| `semantic_search` | AI-powered similarity search |
+| `get_column_stats` | Column statistics (min/max/mean/unique) |
+| `detect_outliers` | Find statistical outliers |
+| `get_distribution` | Value distribution/histogram |
+| `run_sql_query` | SQL-like queries with GROUP BY |
+| `join_csvs` | Join two CSV files |
+| `get_sample` | Get first N rows |
+| `get_schema` | Show column names/types |
 
 ## Installation
 
@@ -96,6 +140,18 @@ src/
 Works with any CSV file, not just products. Supports text, numeric, and boolean columns. Just `/load` your file and start querying.
 
 Example: `/load sales.csv` then "what is the total revenue?"
+
+## Semantic Search
+
+Build a search index to enable AI-powered similarity search:
+
+```bash
+/load data/products.csv
+/index data/products.csv
+# Now ask: "Find affordable laptops"
+```
+
+The semantic search uses sentence-transformers embeddings and ChromaDB for vector storage.
 
 ## OpenRouter
 

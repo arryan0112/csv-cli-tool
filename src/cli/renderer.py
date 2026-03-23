@@ -191,6 +191,80 @@ def print_help():
     console.print()
 
 
+def print_bar_chart(data: list[dict], label_key: str, value_key: str, title: str = None):
+    """
+    Print a horizontal bar chart in the terminal using Unicode characters.
+    
+    Example:
+      data = [{"category": "Electronics", "sales": 50000}, ...]
+      print_bar_chart(data, "category", "sales", "Sales by Category")
+    """
+    if not data:
+        print_info("No data to display.")
+        return
+    
+    max_bar_width = 40
+    max_value = max(row[value_key] for row in data if row.get(value_key) is not None)
+    if max_value == 0:
+        max_value = 1
+    
+    console.print()
+    if title:
+        console.print(f"[bold]{title}[/bold]")
+        console.print()
+    
+    for row in data:
+        label = str(row.get(label_key, ""))
+        value = row.get(value_key, 0)
+        if value is None:
+            value = 0
+        
+        bar_length = int((value / max_value) * max_bar_width)
+        bar = "█" * bar_length
+        
+        console.print(f"  {label:<20} {bar} {value:,}")
+    
+    console.print()
+
+
+def print_pie_chart(data: list[dict], label_key: str, value_key: str, title: str = None):
+    """
+    Print a pie chart representation in the terminal using Unicode characters.
+    
+    Example:
+      data = [{"category": "Electronics", "sales": 50000}, ...]
+      print_pie_chart(data, "category", "sales", "Sales by Category")
+    """
+    if not data:
+        print_info("No data to display.")
+        return
+    
+    total = sum(row.get(value_key, 0) or 0 for row in data if row.get(value_key) is not None)
+    if total == 0:
+        print_info("No data to display (all values are zero).")
+        return
+    
+    console.print()
+    if title:
+        console.print(f"[bold]{title}[/bold]")
+        console.print()
+    
+    segments = ["▏", "▎", "▍", "▌", "▋", "▊", "▉", "█"]
+    
+    for i, row in enumerate(data):
+        label = str(row.get(label_key, ""))
+        value = row.get(value_key, 0)
+        if value is None:
+            value = 0
+        
+        percentage = (value / total) * 100
+        segment = segments[i % len(segments)]
+        
+        console.print(f"  {segment} {label:<20} {value:,} ({percentage:.1f}%)")
+    
+    console.print()
+
+
 class ThinkingSpinner:
     """
     Shows an animated spinner while the agent is thinking.
@@ -209,7 +283,7 @@ class ThinkingSpinner:
             Spinner("dots", text=f"[dim]{self.message}[/dim]"),
             console=console,
             refresh_per_second=10,
-            transient=True,   # clears the spinner when done
+            transient=True,
         )
         self._live.__enter__()
         return self
