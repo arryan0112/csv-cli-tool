@@ -35,11 +35,13 @@ from src.cli.renderer import (
     print_table,
     console,
 )
+from src.agent.modes import set_mode, get_mode, get_mode_info, list_modes
 
 # Available commands for suggestion
 COMMANDS = [
     "/help", "/load", "/schema", "/sessions", "/resume",
-    "/export", "/clear", "/exit", "/quit", "/next", "/prev", "/index"
+    "/export", "/clear", "/exit", "/quit", "/next", "/prev", "/index",
+    "/mode",
 ]
 
 # We store the last result here so /export can access it
@@ -120,6 +122,9 @@ def handle_command(command: str, session_id: str) -> tuple[str, str]:
 
         elif cmd == "/index":
             return _cmd_index(args), session_id
+
+        elif cmd == "/mode":
+            return _cmd_mode(args), session_id
 
         elif cmd == "/exit" or cmd == "/quit":
             return "exit", session_id
@@ -445,5 +450,48 @@ def _cmd_index(args: list[str]) -> str:
     print_info(f"Collection: {result['collection_name']}")
     print_info(f"Columns used: {', '.join(result['columns_used'])}")
     print_info("You can now search semantically, e.g., 'Find affordable laptops'")
+    
+    return "ok"
+
+
+def _cmd_mode(args: list[str]) -> str:
+    """
+    /mode [mode_name]
+    
+    Switch between domain-specific modes or show current mode.
+    """
+    if not args:
+        current = get_mode()
+        if current:
+            info = get_mode_info(current)
+            print_info(f"Current mode: {current}")
+            print_info(f"Description: {info['description']}")
+            print_info(f"Expected columns: {', '.join(info['schema'].keys())}")
+            print_info(f"Sample file: {info['sample_file']}")
+        else:
+            print_info("Current mode: general (no specific domain)")
+            print_info("Use /mode <name> to switch to a domain mode")
+        return "ok"
+    
+    mode_name = args[0].lower()
+    
+    if mode_name == "help" or mode_name == "list":
+        modes = list_modes()
+        print_info("Available modes:")
+        for m in modes:
+            console.print(f"  • [bold]{m['name']}[/bold] - {m['description']}")
+            console.print(f"    Schema: {', '.join(m['schema_keys'])}")
+        print_info("Usage: /mode <mode_name>")
+        return "ok"
+    
+    if set_mode(mode_name):
+        info = get_mode_info(mode_name)
+        print_success(f"Mode set to: {mode_name}")
+        print_info(f"Description: {info['description']}")
+        print_info(f"Expected columns: {', '.join(info['schema'].keys())}")
+        print_info(f"Tip: Load {info['sample_file']} to analyze sample data")
+    else:
+        print_error(f"Unknown mode: {mode_name}")
+        print_info("Use /mode help to see available modes")
     
     return "ok"

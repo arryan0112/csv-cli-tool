@@ -1,4 +1,5 @@
 from src.memory.session_store import get_loaded_files
+from src.agent.modes import get_mode, get_mode_prompt, get_mode_schema
 
 
 def build_system_prompt(session_id: str) -> str:
@@ -20,7 +21,42 @@ def build_system_prompt(session_id: str) -> str:
             "No files loaded yet.\n"
         )
 
-    prompt = f"""You are a CLI data assistant. You answer questions about CSV data by calling tools.
+    current_mode = get_mode()
+    mode_prompt = get_mode_prompt()
+    mode_schema = get_mode_schema()
+    
+    if mode_schema:
+        schema_section = f"\n## Expected data schema for current mode\n"
+        for col, desc in mode_schema.items():
+            schema_section += f"- {col}: {desc}\n"
+    else:
+        schema_section = ""
+
+    # Insights instruction based on mode
+    if current_mode:
+        insights_instruction = """
+## MANDATORY INSIGHTS SECTION (YOU MUST INCLUDE THIS!)
+After providing your answer, you MUST add an "Insights:" section with 1-2 bullet points.
+
+Format:
+Insights:
+• [specific observation from the data - be specific with numbers]
+• [another observation or pattern]
+
+Example for call analytics when user asks about failed calls:
+"There are 13 failed calls in the data. Bangalore has the highest failure rate...
+
+Insights:
+• Bangalore accounts for 8 of 13 failed calls (62%) - investigate network infrastructure
+• Failed calls average 175 seconds vs 67 seconds for successful calls - longer duration may indicate issues
+
+DO NOT skip the Insights section! This is required for all mode-specific analysis."""
+    else:
+        insights_instruction = ""
+
+    prompt = f"""{mode_prompt}
+
+You are also a CLI data assistant. You answer questions about CSV data by calling tools.
 
 ## STRICT RULES — follow these exactly
 
@@ -44,6 +80,7 @@ def build_system_prompt(session_id: str) -> str:
 - If user asks what is available in a city, or mentions a city name, IMMEDIATELY call filter_rows with column='city', operator='=', value=<city name>. Do NOT describe what you are about to do. Just call the tool.
 - If user asks what cities are available, or which cities exist, call get_sample with n=100, then list every unique value found in the city column. Do NOT answer from memory or guess city names. Do NOT call get_schema — it only returns column names, not values.
 - User asks for average/total/min/max → aggregate
+- User asks for "rate", "percentage", "success rate", "failure rate" by category → calculate_rate with group_by_column, condition_column, condition_value. Example: success rate by city → calculate_rate(group_by_column='city', condition_column='success', condition_value='TRUE')
 - User asks to see all data → get_sample with n=10
 - User asks what columns exist → get_schema
 - User asks to load a file → load_csv
@@ -56,10 +93,24 @@ def build_system_prompt(session_id: str) -> str:
 
 {files_section}
 
-## Response style
-- NEVER say "Found X rows" or "Showing X rows". Always describe the actual data returned using the row values.
+{mode_schema}
+
+{insights_instruction}
+
+## Response format (IMPORTANT)
+1. Answer: Provide the direct answer to user's question with specific numbers from the data
+2. Insights: (REQUIRED when in domain mode) Add 1-2 bullet points with observations
+
+Example:
+"There are 13 failed calls in the data from 40 total calls (33% failure rate)."
+
+Insights:
+• Bangalore has 8 failed calls (62% of all failures)
+• Average duration of failed calls is 175 seconds vs 67 seconds for successful
+
+- NEVER say "Found X rows" or "Showing X rows". Always describe the actual data returned.
 - NEVER repeat raw numbers without context. Form complete sentences with the actual row data.
-- Keep all responses under 80 words. Never repeat information already stated. Be concise.
+- Keep all responses under 100 words. Never repeat information already stated. Be concise.
 - Format prices in Indian format e.g. ₹1,50,000
 - Never show raw JSON
 - Never suggest searching online — only use the loaded data

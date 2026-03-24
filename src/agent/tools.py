@@ -283,6 +283,36 @@ TOOLS = [
             "required": ["file_path", "query"],
         },
     },
+    {
+        "name": "calculate_rate",
+        "description": "Calculate rate/percentage of rows matching a condition, grouped by a column. Example: success rate by city → group_by='city', condition_column='success', condition_value='TRUE'",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to an already loaded CSV file",
+                    "pattern": r"\.csv$",
+                },
+                "group_by_column": {
+                    "type": "string",
+                    "description": "Column to group by (e.g., city, region, service)",
+                    "minLength": 1,
+                },
+                "condition_column": {
+                    "type": "string",
+                    "description": "Column to check condition on (e.g., success, fraud_flag, churn_flag)",
+                    "minLength": 1,
+                },
+                "condition_value": {
+                    "type": "string",
+                    "description": "Value that marks success/true (e.g., 'TRUE', 'true', '1')",
+                    "minLength": 1,
+                },
+            },
+            "required": ["file_path", "group_by_column", "condition_column", "condition_value"],
+        },
+    },
 ]
 
 

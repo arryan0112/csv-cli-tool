@@ -53,6 +53,7 @@ agent
 | `/resume <id>` | Resume a previous session |
 | `/export <path>` | Export last result to CSV |
 | `/next` / `/prev` | Paginate through results |
+| `/mode [name]` | Switch domain mode or show current mode |
 | `/clear` | Clear the terminal screen |
 | `/help` | Show all commands |
 | `/exit` | Exit the agent |
@@ -123,6 +124,7 @@ The agent has access to these tools:
 | `join_csvs` | Join two CSV files |
 | `get_sample` | Get first N rows |
 | `get_schema` | Show column names/types |
+| `calculate_rate` | Calculate rate/percentage by group |
 
 ## Installation
 
@@ -157,9 +159,55 @@ The semantic search uses sentence-transformers embeddings and ChromaDB for vecto
 
 Alternatively supports OpenRouter as the LLM provider. Get a free key at [openrouter.ai](https://openrouter.ai). Add `OPENROUTER_API_KEY=your_key` to `.env`. Optionally set `OPENROUTER_MODEL=your_preferred_model`. Falls back to Groq automatically if OpenRouter key is not set.
 
+## Multi-Domain AI Data Copilot
+
+The CLI now supports domain-specific analytics modes that provide specialized insights for different business domains.
+
+### Available Modes
+
+| Mode | Description | Sample Data |
+|------|-------------|-------------|
+| `call_analytics` | Analyze call logs for performance, failures, and regional trends | `data/calls.csv` |
+| `product_analytics` | Analyze user behavior, retention patterns, and funnel drop-offs | `data/events.csv` |
+| `log_debugging` | Analyze logs to identify root causes, error patterns, and anomalies | `data/logs.csv` |
+| `claims_analysis` | Analyze insurance claims for fraud detection and risk assessment | `data/claims.csv` |
+| `system_metrics` | Analyze system performance, detect anomalies, and find correlations | `data/metrics.csv` |
+
+### Using Modes
+
+```bash
+# Switch to a domain mode
+/mode call_analytics
+
+# Load sample data for that domain
+/load data/calls.csv
+
+# Ask domain-specific questions
+show failed calls
+show success rate by city
+find outliers in call_duration
+```
+
+### Mode Features
+
+- **Domain-specific prompts** - Each mode has a specialized system prompt that biases toward relevant insights
+- **Schema guidance** - Expected columns are documented for each mode
+- **Automatic insights** - After every analysis, the agent provides 1-2 actionable insights
+- **Rate calculations** - Built-in tools for calculating success/failure rates by category
+- **Anomaly detection** - Context-aware outlier detection with plain English explanations
+
+### Switching Modes
+
+```bash
+/mode                 # Show current mode
+/mode help            # List all available modes
+/mode <mode_name>    # Switch to a specific mode
+```
+
 ## Contributing
 
 - Fork the repo
 - Create a feature branch
 - New tools can be added in `src/agent/tools.py` and `src/tools/csv_tool.py`
+- New modes can be added in `src/agent/modes.py`
 - Submit a pull request
