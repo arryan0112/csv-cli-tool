@@ -692,3 +692,38 @@ def _cast_value(val: str):
         return float(val)
     except:
         return val
+
+
+def calculate_rate(file_path: str, group_by_column: str, condition_column: str, condition_value: str) -> dict:
+    """
+    Calculate rate/percentage of rows matching a condition, grouped by a column.
+    Example: success rate by city → group_by='city', condition_column='success', condition_value='TRUE'
+    """
+    normalized_path = os.path.abspath(os.path.realpath(file_path))
+    _ensure_loaded(normalized_path)
+    df = _get_df(normalized_path)
+    
+    if df is None:
+        return {"error": f"File not loaded: {file_path}"}
+    
+    if group_by_column not in df.columns:
+        return {"error": f"Column '{group_by_column}' not found"}
+    if condition_column not in df.columns:
+        return {"error": f"Column '{condition_column}' not found"}
+    
+    try:
+        total_count = df.groupby(group_by_column).size().reset_index(name='total')
+        matching_count = df[df[condition_column].astype(str).str.lower() == condition_value.lower()].groupby(group_by_column).size().reset_index(name='matching')
+        
+        result = pd.merge(total_count, matching_count, on=group_by_column, how='left')
+        result['matching'] = result['matching'].fillna(0)
+        result['rate'] = (result['matching'] / result['total'] * 100).round(1)
+        
+        return {
+            "success": True,
+            "group_by": group_by_column,
+            "condition": f"{condition_column}={condition_value}",
+            "data": result.to_dict(orient="records"),
+        }
+    except Exception as e:
+        return {"error": f"Calculation failed: {str(e)}"}

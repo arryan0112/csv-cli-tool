@@ -24,6 +24,7 @@ from src.cli.renderer import (
     ThinkingSpinner,
     console,
 )
+from src.agent.modes import get_mode
 
 
 def start_repl(resume_id: str = None):
@@ -65,7 +66,9 @@ def start_repl(resume_id: str = None):
         try:
             # Read — show prompt and wait for input
             # Using input() directly gives us a clean prompt line
-            user_input = input("you > ").strip()
+            current_mode = get_mode()
+            prompt = f"[{current_mode}] " if current_mode else ""
+            user_input = input(f"{prompt}you > ").strip()
 
         except KeyboardInterrupt:
             # User pressed Ctrl+C

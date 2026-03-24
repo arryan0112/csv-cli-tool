@@ -381,6 +381,19 @@ def _execute_tool(tool_name: str, args: dict):
                 print_table(result["data"], title=f"SQL Query Results ({result['rows']} rows)")
             return result
 
+        elif tool_name == "calculate_rate":
+            from src.tools.csv_tool import calculate_rate as _calculate_rate
+            result = _calculate_rate(
+                args["file_path"],
+                args["group_by_column"],
+                args["condition_column"],
+                args["condition_value"],
+            )
+            if "error" not in result and result.get("data"):
+                from src.cli.renderer import print_table
+                print_table(result["data"], title=f"Rate by {args['group_by_column']}")
+            return result
+
         else:
             return {"error": f"Unknown tool: {tool_name}"}
 
